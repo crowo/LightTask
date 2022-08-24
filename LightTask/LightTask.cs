@@ -60,18 +60,6 @@ public abstract class LightTask
         }
     }
 
-    static LightTask WhenAny<T>(IEnumerable<LightTask<T>> tasks, bool takeEnumerablesSnapshot = false)
-    {
-        var gate = -1;
-        var promise = LightTask<VoidResult, VoidResult>.Rent();
-        Action onComplete = () =>
-        {
-            if (Interlocked.Increment(ref gate) != 0)
-                return;
-        };
-        return promise;
-    }
-
     public static ContextAwaitable CaptureCurrentContext() => new ContextAwaitable(SynchronizationContext.Current);
     protected abstract void Return();
 
