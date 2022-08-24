@@ -21,21 +21,29 @@ public abstract class LightTask
 
     public static LightTask<(T?, Exception?)[]> WhenAll<T>(IEnumerable<LightTask<T>> tasks, bool takeEnumerablesSnapshot = false)
     {
-        int total;
+        var count = 0;
+        var total = 0;
         if (takeEnumerablesSnapshot)
-        {
-            var ary = tasks.ToArray();
-            total = ary.Length;
-            tasks = ary;
-        }
-        else
-            total = tasks.Count();
-        var remaining = total;
+            tasks = tasks.ToArray();
         var promise = LightTask<VoidResult, (T?, Exception?)[]>.Rent();
         Action onComplete = () =>
         {
-            if (Interlocked.Decrement(ref remaining) != 0)
+            if (Interlocked.Decrement(ref count) != 0)
                 return;
+            SetCompleted();
+        };
+        foreach (var task in tasks)
+        {
+            total++;
+            task.OnCompleted(onComplete);
+        }
+        if(Interlocked.Add(ref count, total) == 0)
+        {
+            SetCompleted();
+        }
+        return promise;
+        void SetCompleted()
+        {
             var result = new (T?, Exception?)[total];
             int i = 0;
             foreach (var task in tasks)
@@ -49,12 +57,7 @@ public abstract class LightTask
             }
             promise.m_Result = result;
             promise.SignalCompletion();
-        };
-        foreach (var task in tasks)
-        {
-            task.OnCompleted(onComplete);
         }
-        return promise;
     }
 
     static LightTask WhenAny<T>(IEnumerable<LightTask<T>> tasks, bool takeEnumerablesSnapshot = false)
